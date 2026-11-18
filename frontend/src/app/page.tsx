@@ -5,13 +5,12 @@ import { nda } from "@templates/nda";
 import NdaForm from "@/components/NdaForm";
 import NdaPreview from "@/components/NdaPreview";
 import DownloadButton from "@/components/DownloadButton";
+import { getSectionsForType, NdaType, NDA_TYPE_LABELS } from "@/lib/nda-types";
 
 function getDefaultValues(): Record<string, string> {
   const defaults: Record<string, string> = {};
   for (const v of nda.variables) {
-    if (v.name === "nda_type") {
-      defaults[v.name] = "Mutual";
-    } else if (v.defaultValue) {
+    if (v.defaultValue) {
       defaults[v.name] = v.defaultValue;
     } else {
       defaults[v.name] = "";
@@ -36,6 +35,8 @@ export default function Home() {
     setValues((prev) => ({ ...prev, [name]: value }));
   }
 
+  const ndaType = (values["nda_type"] || "Mutual") as NdaType;
+  const sections = getSectionsForType(nda.sections, ndaType);
   const complete = isFormComplete(values);
 
   return (
@@ -45,7 +46,7 @@ export default function Home() {
           <div>
             <h1 className="text-xl font-bold text-slate-900">Prelegal</h1>
             <p className="text-sm text-slate-500">
-              Mutual NDA Creator
+              {NDA_TYPE_LABELS[ndaType]} Creator
             </p>
           </div>
           <DownloadButton previewRef={previewRef} disabled={!complete} />
@@ -72,8 +73,9 @@ export default function Home() {
           <section>
             <NdaPreview
               ref={previewRef}
-              sections={nda.sections}
+              sections={sections}
               values={values}
+              ndaType={ndaType}
             />
           </section>
         </div>
