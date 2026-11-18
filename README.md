@@ -1,5 +1,7 @@
 # Prelegal
 
+> **Status:** This project is currently in progress and is expected to be completed within 1 week.
+
 A legal document tool for generating, reviewing, and managing legal documents before formal legal review.
 
 ## Features
@@ -24,7 +26,7 @@ A legal document tool for generating, reviewing, and managing legal documents be
 ### Installation
 
 ```bash
-git clone https://github.com/your-username/prelegal.git
+git clone https://github.com/Macrichie/prelegal.git
 cd prelegal
 npm install
 ```
