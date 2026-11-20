@@ -44,3 +44,25 @@ export async function getHealthCheck(): Promise<{ status: string }> {
   if (!res.ok) throw new Error("Health check failed");
   return res.json();
 }
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatResponse {
+  reply: string;
+  extracted_fields: Record<string, string>;
+}
+
+export async function sendChatMessage(
+  messages: ChatMessage[]
+): Promise<ChatResponse> {
+  const res = await fetch(`${API_BASE}/api/chat/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages }),
+  });
+  if (!res.ok) throw new Error("Chat request failed");
+  return res.json();
+}

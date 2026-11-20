@@ -1,24 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { nda } from "@templates/nda";
-import NdaForm from "@/components/NdaForm";
+import NdaChat from "@/components/NdaChat";
+import ExtractedFields from "@/components/ExtractedFields";
 import NdaPreview from "@/components/NdaPreview";
 import DownloadButton from "@/components/DownloadButton";
 import Navbar from "@/components/Navbar";
-import { getSectionsForType, NdaType, NDA_TYPE_LABELS } from "@/lib/nda-types";
+import { getSectionsForType } from "@/lib/nda-types";
 import { useAuth } from "@/contexts/AuthContext";
 
 function getDefaultValues(): Record<string, string> {
   const defaults: Record<string, string> = {};
   for (const v of nda.variables) {
-    if (v.defaultValue) {
-      defaults[v.name] = v.defaultValue;
-    } else {
-      defaults[v.name] = "";
-    }
+    defaults[v.name] = v.defaultValue || "";
   }
+  defaults["nda_type"] = "Mutual";
   return defaults;
 }
 
@@ -31,9 +29,7 @@ function isFormComplete(values: Record<string, string>): boolean {
 export default function NdaPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const [values, setValues] = useState<Record<string, string>>(
-    getDefaultValues
-  );
+  const [values, setValues] = useState<Record<string, string>>(getDefaultValues);
   const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,12 +38,18 @@ export default function NdaPage() {
     }
   }, [user, isLoading, router]);
 
-  function handleChange(name: string, value: string) {
+  const handleFieldsExtracted = useCallback(
+    (fields: Record<string, string>) => {
+      setValues((prev) => ({ ...prev, ...fields }));
+    },
+    []
+  );
+
+  function handleFieldChange(name: string, value: string) {
     setValues((prev) => ({ ...prev, [name]: value }));
   }
 
-  const ndaType = (values["nda_type"] || "Mutual") as NdaType;
-  const sections = getSectionsForType(nda.sections, ndaType);
+  const sections = getSectionsForType(nda.sections, "Mutual");
   const complete = isFormComplete(values);
 
   if (isLoading || !user) {
@@ -68,11 +70,11 @@ export default function NdaPage() {
               onClick={() => router.push("/")}
               className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
             >
-              ← Back to Dashboard
+              &larr; Back to Dashboard
             </button>
             <span className="text-slate-300">|</span>
             <p className="text-sm font-medium text-slate-700">
-              {NDA_TYPE_LABELS[ndaType]} Creator
+              Mutual NDA Creator
             </p>
           </div>
           <DownloadButton previewRef={previewRef} disabled={!complete} />
@@ -80,19 +82,21 @@ export default function NdaPage() {
       </div>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-8">
           <aside className="no-print">
-            <div className="sticky top-8 bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              <NdaForm
-                variables={nda.variables}
-                values={values}
-                onChange={handleChange}
-              />
-              {!complete && (
-                <p className="mt-4 text-xs text-amber-600">
-                  Fill in all required fields to enable PDF download.
-                </p>
-              )}
+            <div className="sticky top-8 flex flex-col gap-4" style={{ maxHeight: "calc(100vh - 8rem)" }}>
+              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex-1 min-h-0 flex flex-col">
+                <h2 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+                    AI
+                  </span>
+                  NDA Assistant
+                </h2>
+                <NdaChat onFieldsExtracted={handleFieldsExtracted} />
+              </div>
+              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex-shrink-0">
+                <ExtractedFields values={values} onChange={handleFieldChange} />
+              </div>
             </div>
           </aside>
 
@@ -101,7 +105,7 @@ export default function NdaPage() {
               ref={previewRef}
               sections={sections}
               values={values}
-              ndaType={ndaType}
+              ndaType="Mutual"
             />
           </section>
         </div>
