@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from anthropic import Anthropic
+from pydantic import BaseModel, field_validator
+from anthropic import Anthropic, APIError
 
 import os
 import json
@@ -74,9 +74,30 @@ class ChatMessage(BaseModel):
     role: str
     content: str
 
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ("user", "assistant"):
+            raise ValueError("role must be 'user' or 'assistant'")
+        return v
+
+    @field_validator("content")
+    @classmethod
+    def validate_content(cls, v: str) -> str:
+        if len(v) > 4000:
+            raise ValueError("message content too long")
+        return v
+
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
+
+    @field_validator("messages")
+    @classmethod
+    def validate_messages(cls, v):
+        if len(v) > 100:
+            raise ValueError("too many messages")
+        return v
 
 
 class ChatResponse(BaseModel):
@@ -104,13 +125,16 @@ def chat(req: ChatRequest):
 
     api_messages = [{"role": m.role, "content": m.content} for m in req.messages]
 
-    response = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1024,
-        system=SYSTEM_PROMPT,
-        tools=[NDA_FIELDS_TOOL],
-        messages=api_messages,
-    )
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1024,
+            system=SYSTEM_PROMPT,
+            tools=[NDA_FIELDS_TOOL],
+            messages=api_messages,
+        )
+    except APIError as e:
+        raise HTTPException(status_code=502, detail=f"AI service error: {e.message}")
 
     reply_text = ""
     extracted_fields: dict[str, str] = {}
@@ -120,34 +144,43 @@ def chat(req: ChatRequest):
         if block.type == "text":
             reply_text += block.text
         elif block.type == "tool_use" and block.name == "update_nda_fields":
-            extracted_fields = {k: v for k, v in block.input.items() if v}
+            extracted_fields.update({k: v for k, v in block.input.items() if v})
             tool_use_id = block.id
 
     if extracted_fields and not reply_text and tool_use_id:
-        follow_up = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            tools=[NDA_FIELDS_TOOL],
-            messages=api_messages
-            + [
-                {"role": "assistant", "content": _serialize_content(response.content)},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": tool_use_id,
-                            "content": json.dumps(
-                                {"status": "ok", "updated_fields": extracted_fields}
-                            ),
-                        }
-                    ],
-                },
-            ],
-        )
+        try:
+            follow_up = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1024,
+                system=SYSTEM_PROMPT,
+                tools=[NDA_FIELDS_TOOL],
+                messages=api_messages
+                + [
+                    {"role": "assistant", "content": _serialize_content(response.content)},
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": tool_use_id,
+                                "content": json.dumps(
+                                    {"status": "ok", "updated_fields": extracted_fields}
+                                ),
+                            }
+                        ],
+                    },
+                ],
+            )
+        except APIError as e:
+            raise HTTPException(status_code=502, detail=f"AI service error: {e.message}")
+
         for block in follow_up.content:
             if block.type == "text":
                 reply_text += block.text
+            elif block.type == "tool_use" and block.name == "update_nda_fields":
+                extracted_fields.update({k: v for k, v in block.input.items() if v})
+
+    if not reply_text:
+        reply_text = "I'm sorry, I didn't quite catch that. Could you tell me more about the parties involved in the NDA?"
 
     return ChatResponse(reply=reply_text, extracted_fields=extracted_fields)
