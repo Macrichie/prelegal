@@ -2,9 +2,11 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  cacheComponents: true,
-  partialPrefetching: true,
   turbopack: {
+    resolveAlias: {
+      "@templates": path.resolve(__dirname, "../src/data/templates"),
+      "@template-types": path.resolve(__dirname, "../src/types"),
+    },
     rules: {
       "*.css": {
         loaders: ["@tailwindcss/turbopack"],

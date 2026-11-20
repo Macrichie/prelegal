@@ -7,11 +7,13 @@ import jsPDF from "jspdf";
 interface DownloadButtonProps {
   previewRef: RefObject<HTMLDivElement | null>;
   disabled?: boolean;
+  filename?: string;
 }
 
 export default function DownloadButton({
   previewRef,
   disabled,
+  filename = "Document",
 }: DownloadButtonProps) {
   const [loading, setLoading] = useState(false);
 
@@ -49,7 +51,7 @@ export default function DownloadButton({
         heightLeft -= pdfHeight;
       }
 
-      pdf.save("Mutual_NDA.pdf");
+      pdf.save(`${filename.replace(/\s+/g, "_")}.pdf`);
     } finally {
       setLoading(false);
     }
