@@ -4,10 +4,25 @@ from anthropic import Anthropic, APIError
 
 import os
 import json
+from pathlib import Path
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
-_api_key = os.getenv("ANTHROPIC_API_KEY")
+
+def _load_api_key() -> str:
+    """Load API key from env var, falling back to .env file."""
+    key = os.getenv("ANTHROPIC_API_KEY", "").strip()
+    if key:
+        return key
+    env_file = Path(__file__).resolve().parents[3] / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            if line.startswith("ANTHROPIC_API_KEY="):
+                return line.split("=", 1)[1].strip()
+    return ""
+
+
+_api_key = _load_api_key()
 client = Anthropic(api_key=_api_key) if _api_key else None
 
 SYSTEM_PROMPT = """You are a friendly legal assistant helping a user create a Mutual Non-Disclosure Agreement (NDA). Your job is to have a natural conversation to collect the following information:
@@ -127,14 +142,18 @@ def chat(req: ChatRequest):
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-3-5-sonnet-20241022",
             max_tokens=1024,
             system=SYSTEM_PROMPT,
             tools=[NDA_FIELDS_TOOL],
             messages=api_messages,
         )
     except APIError as e:
+        print(f"[CHAT] Anthropic API error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=502, detail=f"AI service error: {e.message}")
+    except Exception as e:
+        print(f"[CHAT] Unexpected error: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=502, detail=f"AI service error: {str(e)}")
 
     reply_text = ""
     extracted_fields: dict[str, str] = {}
@@ -150,7 +169,7 @@ def chat(req: ChatRequest):
     if extracted_fields and not reply_text and tool_use_id:
         try:
             follow_up = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-3-5-sonnet-20241022",
                 max_tokens=1024,
                 system=SYSTEM_PROMPT,
                 tools=[NDA_FIELDS_TOOL],
