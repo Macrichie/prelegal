@@ -3,16 +3,15 @@
 import { forwardRef } from "react";
 import { TemplateSection } from "@template-types/template";
 import { fillTemplate } from "@/lib/template-utils";
-import { getDocumentTitle, NdaType } from "@/lib/nda-types";
 
-interface NdaPreviewProps {
+interface DocumentPreviewProps {
+  title: string;
   sections: TemplateSection[];
   values: Record<string, string>;
-  ndaType: NdaType;
 }
 
-const NdaPreview = forwardRef<HTMLDivElement, NdaPreviewProps>(
-  function NdaPreview({ sections, values, ndaType }, ref) {
+const DocumentPreview = forwardRef<HTMLDivElement, DocumentPreviewProps>(
+  function DocumentPreview({ title, sections, values }, ref) {
     const sortedSections = [...sections].sort((a, b) => a.order - b.order);
 
     return (
@@ -21,7 +20,7 @@ const NdaPreview = forwardRef<HTMLDivElement, NdaPreviewProps>(
         className="bg-white rounded-lg shadow-sm border border-slate-200 p-10 max-w-[800px] mx-auto"
       >
         <h1 className="text-2xl font-bold text-center text-slate-900 mb-2">
-          {getDocumentTitle(ndaType)}
+          {title}
         </h1>
         <hr className="border-slate-300 mb-8" />
 
@@ -55,4 +54,4 @@ const NdaPreview = forwardRef<HTMLDivElement, NdaPreviewProps>(
   }
 );
 
-export default NdaPreview;
+export default DocumentPreview;

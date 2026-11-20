@@ -2,41 +2,43 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { nda } from "@templates/nda";
-import NdaChat from "@/components/NdaChat";
-import ExtractedFields from "@/components/ExtractedFields";
-import NdaPreview from "@/components/NdaPreview";
+import { getTemplateById } from "@templates/index";
+import DocumentChat from "@/components/DocumentChat";
+import ExtractedFields, { FieldDefinition } from "@/components/ExtractedFields";
+import DocumentPreview from "@/components/DocumentPreview";
 import DownloadButton from "@/components/DownloadButton";
 import Navbar from "@/components/Navbar";
-import { getSectionsForType } from "@/lib/nda-types";
 import { useAuth } from "@/contexts/AuthContext";
 
-function getDefaultValues(): Record<string, string> {
-  const defaults: Record<string, string> = {};
-  for (const v of nda.variables) {
-    defaults[v.name] = v.defaultValue || "";
-  }
-  defaults["nda_type"] = "Mutual";
-  return defaults;
+interface TemplatePageClientProps {
+  templateId: string;
 }
 
-function isFormComplete(values: Record<string, string>): boolean {
-  return nda.variables
-    .filter((v) => v.required)
-    .every((v) => values[v.name]?.trim() !== "");
-}
-
-export default function NdaPage() {
+export default function TemplatePageClient({ templateId }: TemplatePageClientProps) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const [values, setValues] = useState<Record<string, string>>(getDefaultValues);
+  const template = getTemplateById(templateId);
+
+  const [values, setValues] = useState<Record<string, string>>({});
   const previewRef = useRef<HTMLDivElement>(null);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push("/login");
     }
   }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (template && !initialized) {
+      const defaults: Record<string, string> = {};
+      for (const v of template.variables) {
+        defaults[v.name] = v.defaultValue || "";
+      }
+      setValues(defaults);
+      setInitialized(true);
+    }
+  }, [template, initialized]);
 
   const handleFieldsExtracted = useCallback(
     (fields: Record<string, string>) => {
@@ -49,9 +51,6 @@ export default function NdaPage() {
     setValues((prev) => ({ ...prev, [name]: value }));
   }
 
-  const sections = getSectionsForType(nda.sections, "Mutual");
-  const complete = isFormComplete(values);
-
   if (isLoading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -59,6 +58,37 @@ export default function NdaPage() {
       </div>
     );
   }
+
+  if (!template) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-slate-900 mb-2">Template Not Found</h1>
+            <p className="text-slate-500 mb-4">
+              The template &ldquo;{templateId}&rdquo; does not exist.
+            </p>
+            <button
+              onClick={() => router.push("/")}
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              &larr; Back to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const fieldDefs: FieldDefinition[] = template.variables.map((v) => ({
+    name: v.name,
+    label: v.label,
+  }));
+
+  const complete = template.variables
+    .filter((v) => v.required)
+    .every((v) => values[v.name]?.trim() !== "");
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -74,10 +104,14 @@ export default function NdaPage() {
             </button>
             <span className="text-slate-300">|</span>
             <p className="text-sm font-medium text-slate-700">
-              Mutual NDA Creator
+              {template.name}
             </p>
           </div>
-          <DownloadButton previewRef={previewRef} disabled={!complete} />
+          <DownloadButton
+            previewRef={previewRef}
+            disabled={!complete}
+            filename={template.name}
+          />
         </div>
       </div>
 
@@ -90,22 +124,30 @@ export default function NdaPage() {
                   <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
                     AI
                   </span>
-                  NDA Assistant
+                  Document Assistant
                 </h2>
-                <NdaChat onFieldsExtracted={handleFieldsExtracted} />
+                <DocumentChat
+                  templateId={templateId}
+                  templateName={template.name}
+                  onFieldsExtracted={handleFieldsExtracted}
+                />
               </div>
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex-shrink-0">
-                <ExtractedFields values={values} onChange={handleFieldChange} />
+                <ExtractedFields
+                  fields={fieldDefs}
+                  values={values}
+                  onChange={handleFieldChange}
+                />
               </div>
             </div>
           </aside>
 
           <section>
-            <NdaPreview
+            <DocumentPreview
               ref={previewRef}
-              sections={sections}
+              title={template.name.toUpperCase()}
+              sections={template.sections}
               values={values}
-              ndaType="Mutual"
             />
           </section>
         </div>

@@ -56,12 +56,13 @@ export interface ChatResponse {
 }
 
 export async function sendChatMessage(
+  templateId: string,
   messages: ChatMessage[]
 ): Promise<ChatResponse> {
   const res = await fetch(`${API_BASE}/api/chat/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({ template_id: templateId, messages }),
   });
   if (!res.ok) throw new Error("Chat request failed");
   return res.json();

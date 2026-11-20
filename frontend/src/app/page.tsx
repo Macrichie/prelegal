@@ -15,8 +15,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   "legal-form": "bg-rose-100 text-rose-700",
 };
 
-const ACTIVE_TEMPLATES = new Set(["nda"]);
-
 export default function Dashboard() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
@@ -67,11 +65,10 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates.map((template) => {
-            const isActive = ACTIVE_TEMPLATES.has(template.id);
             const colorClass =
               CATEGORY_COLORS[template.category] || "bg-slate-100 text-slate-700";
 
-            return isActive ? (
+            return (
               <Link
                 key={template.id}
                 href={`/templates/${template.id}`}
@@ -94,28 +91,6 @@ export default function Dashboard() {
                   Create document →
                 </span>
               </Link>
-            ) : (
-              <div
-                key={template.id}
-                className="rounded-xl border border-slate-200 bg-white p-6 opacity-60"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <span
-                    className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${colorClass}`}
-                  >
-                    {template.category}
-                  </span>
-                  <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-1 rounded-full">
-                    Coming Soon
-                  </span>
-                </div>
-                <h3 className="text-base font-semibold text-slate-900">
-                  {template.name}
-                </h3>
-                <p className="text-sm text-slate-500 mt-2 line-clamp-2">
-                  {template.description}
-                </p>
-              </div>
             );
           })}
         </div>

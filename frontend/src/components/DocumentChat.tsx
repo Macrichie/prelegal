@@ -3,11 +3,17 @@
 import { useState, useRef, useEffect } from "react";
 import { sendChatMessage, ChatMessage } from "@/lib/api";
 
-interface NdaChatProps {
+interface DocumentChatProps {
+  templateId: string;
+  templateName: string;
   onFieldsExtracted: (fields: Record<string, string>) => void;
 }
 
-export default function NdaChat({ onFieldsExtracted }: NdaChatProps) {
+export default function DocumentChat({
+  templateId,
+  templateName,
+  onFieldsExtracted,
+}: DocumentChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -29,12 +35,13 @@ export default function NdaChat({ onFieldsExtracted }: NdaChatProps) {
   async function getInitialGreeting() {
     setIsLoading(true);
     setError(null);
+    const initMsg = `Hi, I'd like to create a ${templateName}.`;
     try {
-      const res = await sendChatMessage([
-        { role: "user", content: "Hi, I'd like to create a Mutual NDA." },
+      const res = await sendChatMessage(templateId, [
+        { role: "user", content: initMsg },
       ]);
       setMessages([
-        { role: "user", content: "Hi, I'd like to create a Mutual NDA." },
+        { role: "user", content: initMsg },
         { role: "assistant", content: res.reply },
       ]);
       if (Object.keys(res.extracted_fields).length > 0) {
@@ -62,7 +69,7 @@ export default function NdaChat({ onFieldsExtracted }: NdaChatProps) {
     setError(null);
 
     try {
-      const res = await sendChatMessage(newMessages);
+      const res = await sendChatMessage(templateId, newMessages);
       setMessages([
         ...newMessages,
         { role: "assistant", content: res.reply },
