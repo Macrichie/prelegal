@@ -1,83 +1,123 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { nda } from "@templates/nda";
-import NdaForm from "@/components/NdaForm";
-import NdaPreview from "@/components/NdaPreview";
-import DownloadButton from "@/components/DownloadButton";
-import { getSectionsForType, NdaType, NDA_TYPE_LABELS } from "@/lib/nda-types";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+import { getTemplates, ApiTemplateSummary } from "@/lib/api";
+import Navbar from "@/components/Navbar";
 
-function getDefaultValues(): Record<string, string> {
-  const defaults: Record<string, string> = {};
-  for (const v of nda.variables) {
-    if (v.defaultValue) {
-      defaults[v.name] = v.defaultValue;
-    } else {
-      defaults[v.name] = "";
+const CATEGORY_COLORS: Record<string, string> = {
+  agreement: "bg-blue-100 text-blue-700",
+  contract: "bg-emerald-100 text-emerald-700",
+  policy: "bg-purple-100 text-purple-700",
+  letter: "bg-amber-100 text-amber-700",
+  "legal-form": "bg-rose-100 text-rose-700",
+};
+
+const ACTIVE_TEMPLATES = new Set(["nda"]);
+
+export default function Dashboard() {
+  const { user, isLoading } = useAuth();
+  const router = useRouter();
+  const [templates, setTemplates] = useState<ApiTemplateSummary[]>([]);
+  const [fetchError, setFetchError] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push("/login");
     }
+  }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (!user) return;
+    getTemplates()
+      .then(setTemplates)
+      .catch(() => setFetchError(true));
+  }, [user]);
+
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-slate-500">Loading...</p>
+      </div>
+    );
   }
-  return defaults;
-}
-
-function isFormComplete(values: Record<string, string>): boolean {
-  return nda.variables
-    .filter((v) => v.required)
-    .every((v) => values[v.name]?.trim() !== "");
-}
-
-export default function Home() {
-  const [values, setValues] = useState<Record<string, string>>(
-    getDefaultValues
-  );
-  const previewRef = useRef<HTMLDivElement>(null);
-
-  function handleChange(name: string, value: string) {
-    setValues((prev) => ({ ...prev, [name]: value }));
-  }
-
-  const ndaType = (values["nda_type"] || "Mutual") as NdaType;
-  const sections = getSectionsForType(nda.sections, ndaType);
-  const complete = isFormComplete(values);
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="bg-white border-b border-slate-200 px-6 py-4 no-print">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Prelegal</h1>
-            <p className="text-sm text-slate-500">
-              {NDA_TYPE_LABELS[ndaType]} Creator
+      <Navbar />
+      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-slate-900">
+            Welcome back, {user.name}
+          </h1>
+          <p className="text-slate-500 mt-1">
+            Choose a template to create a new legal document.
+          </p>
+        </div>
+
+        {fetchError && (
+          <div className="mb-6 rounded-lg bg-amber-50 border border-amber-200 p-4">
+            <p className="text-sm text-amber-700">
+              Could not load templates from server. Showing cached templates.
             </p>
           </div>
-          <DownloadButton previewRef={previewRef} disabled={!complete} />
-        </div>
-      </header>
+        )}
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-8">
-          <aside className="no-print">
-            <div className="sticky top-8 bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              <NdaForm
-                variables={nda.variables}
-                values={values}
-                onChange={handleChange}
-              />
-              {!complete && (
-                <p className="mt-4 text-xs text-amber-600">
-                  Fill in all required fields to enable PDF download.
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {templates.map((template) => {
+            const isActive = ACTIVE_TEMPLATES.has(template.id);
+            const colorClass =
+              CATEGORY_COLORS[template.category] || "bg-slate-100 text-slate-700";
+
+            return isActive ? (
+              <Link
+                key={template.id}
+                href={`/templates/${template.id}`}
+                className="group block rounded-xl border border-slate-200 bg-white p-6 hover:border-blue-300 hover:shadow-md transition-all"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <span
+                    className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${colorClass}`}
+                  >
+                    {template.category}
+                  </span>
+                </div>
+                <h3 className="text-base font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
+                  {template.name}
+                </h3>
+                <p className="text-sm text-slate-500 mt-2 line-clamp-2">
+                  {template.description}
                 </p>
-              )}
-            </div>
-          </aside>
-
-          <section>
-            <NdaPreview
-              ref={previewRef}
-              sections={sections}
-              values={values}
-              ndaType={ndaType}
-            />
-          </section>
+                <span className="inline-block mt-4 text-xs font-medium text-blue-600">
+                  Create document →
+                </span>
+              </Link>
+            ) : (
+              <div
+                key={template.id}
+                className="rounded-xl border border-slate-200 bg-white p-6 opacity-60"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <span
+                    className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${colorClass}`}
+                  >
+                    {template.category}
+                  </span>
+                  <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-1 rounded-full">
+                    Coming Soon
+                  </span>
+                </div>
+                <h3 className="text-base font-semibold text-slate-900">
+                  {template.name}
+                </h3>
+                <p className="text-sm text-slate-500 mt-2 line-clamp-2">
+                  {template.description}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </main>
     </div>
